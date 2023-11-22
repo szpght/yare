@@ -34,13 +34,12 @@ struct Node {
 
 pub fn assemble(text: &str) -> anyhow::Result<()> {
     let sexpression = parse_text(text)?;
-    let operation_expressions = 
-        value_to_iter(&sexpression)?.collect::<Vec<&Value>>();
+    let operation_expressions = value_to_iter(&sexpression)?;
 
     println!("operation_expressions: {:?}", operation_expressions);
     
     let mut vectors_of_tokens = Vec::new();
-    for op_expression in operation_expressions {
+    for op_expression in value_to_iter(&sexpression)? {
         let op_tokens = value_to_iter(op_expression)?
             .map(|op_token| parse_token(op_token).ok_or_else(||ParseError::operand(op_token)))
             .collect::<Result<Vec<Token>, ParseError>>()?;
