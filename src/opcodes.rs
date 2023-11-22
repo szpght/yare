@@ -41,33 +41,33 @@ declare_instructions!(
     (sar 7)
     
     // branches
-    (ja 16)
-    (jr 17)
-    (je 18)
-    (jne 19)
-    (jg 20)
-    (jge 21)
-    (jgs 22)
-    (jges 23)
+    (ja 8)
+    (jr 9)
+    (je 10)
+    (jne 11)
+    (jg 12)
+    (jge 13)
+    (jgs 14)
+    (jges 15)
     
     // loads
-    (lbu 48)
-    (lwu 49)
-    (ldu 50)
-    (lbs 51)
-    (lws 52)
-    (lds 53)
-    (lq 54)
+    (lbu 16)
+    (lwu 17)
+    (ldu 18)
+    (lbs 19)
+    (lws 20)
+    (lds 21)
+    (lq 22)
     
     // stores
-    (sb 55) 
-    (sw 56) 
-    (sd 57) 
-    (sq 58)
+    (sb 23) 
+    (sw 24) 
+    (sd 25) 
+    (sq 26)
     // 
     // // virtual
-    // (neg 255)
-    // (not 254)
+    (neg 255)
+    (not 254)
 );
 
 #[cfg(test)]
