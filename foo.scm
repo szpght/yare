@@ -1,9 +1,12 @@
-((add r1, 666)
+((add r1 666)
   (ADD r2 42)
   (neg r3 r1 r2)
   (sq 2 r1)
   (sq 10 r2)
   (sq 18 r3)
+  
+  (labelek:)
+  (hehe (labelek . -4))
   (lq r4 2)
   (lq r5 10)
   (lq r6 18)
