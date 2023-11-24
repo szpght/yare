@@ -1,23 +1,12 @@
 mod opcodes;
 mod bus;
-mod assembler;
 mod instruction;
 
 use std::fs::File;
 use std::io::{self, BufReader, Read};
-use lexpr::Value;
-use crate::assembler::assemble;
 use crate::bus::Bus;
 use crate::instruction::Instruction;
-use crate::opcodes::{mnemonic_to_opcode, opcode_to_mnemonic, SUB};
-
-/// Instruction format:
-/// 8b - opcode
-/// 8b - 1st input register
-/// 8b - 2nd input register
-/// 8b - output register
-/// 32b - padding
-/// 64b - immediate
+use crate::opcodes::*;
 
 #[derive(Default, Debug)]
 enum Equality {
@@ -31,145 +20,137 @@ enum Equality {
 struct Cpu {
     pub registers: [u64; 32],
     pub pc: u64,
+    pub cycles: u64,
+    pub instructions_retired: u64,
 }
 
 impl Cpu {
     pub fn new() -> Cpu {
-        Cpu { registers: [0; 32], pc: 0 }
+        Cpu { registers: [0; 32], pc: 0, cycles: 0, instructions_retired: 0 }
     }
-    
+
     pub fn work(&mut self, bus: &mut Bus) {
         loop {
             self.step(bus);
         }
     }
-    
+
     pub fn step(&mut self, bus: &mut Bus) {
         let instruction = self.fetch(bus);
-        self.execute(&instruction, bus);   
+        self.execute(&instruction, bus);
     }
-    
+
     pub fn fetch(&mut self, bus: &mut Bus) -> Instruction {
-        let data = bus.load64(self.pc);
-        let immediate = bus.load64(self.pc + 8);
-        
-        Instruction::decode(data, immediate)
+        let data = bus.load32(self.pc) as i32;
+        Instruction::decode(data)
     }
-    
+
     pub fn execute(&mut self, instruction: &Instruction, bus: &mut Bus) {
         let pc = self.pc;
-        let value_a = self.read_register(instruction.reg_a, instruction.immediate);
-        let value_b = self.read_register(instruction.reg_b, instruction.immediate);
-        let value_target = self.read_register(instruction.reg_target, instruction.immediate);
-        let reg_a_signed = value_a as i64;
-        let reg_b_signed = value_b as i64;
-        let shift = value_b % 32;
-        let next_instruction_address = self.pc + Instruction::SIZE;
-        let mut new_pc = self.pc + Instruction::SIZE;
+        let next_instruction_address = self.pc + instruction.size;
+        let mut new_pc = next_instruction_address;
+        let rs1_value = self.read_register(instruction.rs1);
+        let rs2_value = self.read_register(instruction.rs2);
+        let rs1_value_signed = rs1_value as i64;
+        let rs2_value_signed = rs2_value as i64;
+        let mut write_rd = |value: u64| self.write_register(instruction.rd, value);
 
-        {
-            let mut write_target = |x| self.write_register(instruction.reg_target, x);
-            let mut jump = |x| {
-                write_target(next_instruction_address);
-                new_pc = x; };
-            let mut jump_relative = |x| jump(pc.wrapping_add(x));
+        match (instruction.opcode, instruction.funct3, instruction.funct7) {
+            (OPCODE_OP_IMM, F3_ADD, _) => write_rd(rs1_value.wrapping_add_signed(instruction.immediate_i())),
+            (OPCODE_OP_IMM, F3_SLT, _) => write_rd((rs1_value_signed < instruction.immediate_i()) as u64),
+            (OPCODE_OP_IMM, F3_SLTU, _) => write_rd((rs1_value < instruction.immediate_i_unsigned()) as u64),
+            (OPCODE_OP_IMM, F3_AND, _) => write_rd(instruction.immediate_i_unsigned() & rs1_value),
+            (OPCODE_OP_IMM, F3_OR, _) => write_rd(instruction.immediate_i_unsigned() | rs1_value),
+            (OPCODE_OP_IMM, F3_XOR, _) => write_rd(instruction.immediate_i_unsigned() ^ rs1_value),
+            (OPCODE_OP_IMM, F3_SLL, _) => write_rd(rs1_value << instruction.shamt),
+            (OPCODE_OP_IMM, F3_SRL, F7_SRL) => write_rd(rs1_value >> instruction.shamt),
+            (OPCODE_OP_IMM, F3_SRA, F7_SRA) => write_rd((rs1_value_signed >> instruction.shamt) as u64),
 
-            match instruction.opcode {
-                // math
-                opcodes::ADD => write_target(value_a.wrapping_add(value_b)),
-                opcodes::SUB => write_target(value_a.wrapping_sub(value_b)),
-                opcodes::AND => write_target(value_a & value_b),
-                //opcodes::NEG => write_target((!value_a).wrapping_add(1)),
-                //opcodes::NOT => write_target(!value_a),
-                opcodes::OR => write_target(value_a | value_b),
-                opcodes::XOR => write_target(value_a ^ value_b),
-                opcodes::SHL => write_target(value_a << shift),
-                opcodes::SHR => write_target(value_a >> shift),
-                opcodes::SAR => write_target(((reg_a_signed) >> shift) as u64),
-                
-                // branches
-                opcodes::JA => jump(value_a),
-                opcodes::JR => jump_relative(value_a),
-                opcodes::JE => if value_a == value_b { jump_relative(instruction.immediate) },
-                opcodes::JNE => if value_a != value_b { jump_relative(instruction.immediate) },
-                opcodes::JG => if value_a > value_b { jump_relative(instruction.immediate) },
-                opcodes::JGE => if value_a >= value_b { jump_relative(instruction.immediate) },
-                opcodes::JGS => if reg_a_signed > reg_b_signed { jump_relative(instruction.immediate) },
-                opcodes::JGES => if reg_a_signed >= reg_b_signed { jump_relative(instruction.immediate) },
-                
-                // load
-                opcodes::LBU => write_target(bus.load8(value_a.wrapping_add_signed(instruction.offset as i64))),
-                opcodes::LWU => write_target(bus.load16(value_a.wrapping_add_signed(instruction.offset as i64))),
-                opcodes::LDU => write_target(bus.load32(value_a.wrapping_add_signed(instruction.offset as i64))),
-                opcodes::LQ => write_target(bus.load64(value_a.wrapping_add_signed(instruction.offset as i64))),
-                opcodes::LBS => write_target(bus.load8(value_a.wrapping_add_signed(instruction.offset as i64)) as i8 as u64),
-                opcodes::LWS => write_target(bus.load16(value_a.wrapping_add_signed(instruction.offset as i64)) as i16 as u64),
-                opcodes::LDS => write_target(bus.load32(value_a.wrapping_add_signed(instruction.offset as i64)) as i32 as u64),
-                
-                // store
-                opcodes::SB => bus.store8(value_target.wrapping_add_signed(instruction.offset as i64), value_a),
-                opcodes::SW => bus.store16(value_target.wrapping_add_signed(instruction.offset as i64), value_a),
-                opcodes::SD => bus.store32(value_target.wrapping_add_signed(instruction.offset as i64), value_a),
-                opcodes::SQ => bus.store64(value_target.wrapping_add_signed(instruction.offset as i64), value_a),
+            (OPCODE_LUI, _, _) => write_rd(instruction.immediate_u_unsigned()),
+            
+            (OPCODE_AUIPC, _, _) => write_rd(pc + instruction.immediate_u_unsigned()),
 
-                _ => self.undefined_instruction(),
+            (OPCODE_OP, F3_ADD, F7_ADD) => write_rd(rs1_value.wrapping_add(rs2_value)),
+            (OPCODE_OP, F3_SLT, F7_SLT) => write_rd((rs1_value_signed < rs2_value_signed) as u64),
+            (OPCODE_OP, F3_SLTU, F7_SLTU) => write_rd((rs1_value < rs2_value) as u64),
+            (OPCODE_OP, F3_AND, F7_AND) => write_rd(rs1_value & rs2_value),
+            (OPCODE_OP, F3_OR, F7_OR) => write_rd(rs1_value | rs2_value),
+            (OPCODE_OP, F3_XOR, F7_XOR) => write_rd(rs1_value ^ rs2_value),
+            (OPCODE_OP, F3_SLL, F7_SLL) => write_rd(rs1_value << (rs2_value & 0x1F)),
+            (OPCODE_OP, F3_SRL, F7_SRL) => write_rd(rs1_value >> (rs2_value & 0x1F)),
+            (OPCODE_OP, F3_SRA, F7_SRA) => write_rd((rs1_value_signed >> (rs2_value & 0x1F)) as u64),
+            (OPCODE_OP, F3_SUB, F7_SUB) => write_rd(rs1_value.wrapping_sub(rs2_value)),
+
+            (OPCODE_JAL, _, _) => {
+                write_rd(next_instruction_address);
+                new_pc = pc.wrapping_add_signed(instruction.immediate_j())
             }
+
+            (OPCODE_JALR, _, _) => {
+                write_rd(next_instruction_address);
+                new_pc = rs1_value.wrapping_add_signed(instruction.immediate_i()) & (!1);
+            }
+
+            (OPCODE_BRANCH, F3_BEQ, _) => if rs1_value == rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+            (OPCODE_BRANCH, F3_BNE, _) => if rs1_value != rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+            (OPCODE_BRANCH, F3_BLT, _) => if rs1_value_signed < rs2_value_signed { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+            (OPCODE_BRANCH, F3_BGE, _) => if rs1_value_signed >= rs2_value_signed { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+            (OPCODE_BRANCH, F3_BLTU, _) => if rs1_value < rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+            (OPCODE_BRANCH, F3_BGEU, _) => if rs1_value >= rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
+
+            (OPCODE_LOAD, F3_LB, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i8 as u64),
+            (OPCODE_LOAD, F3_LH, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i16 as u64),
+            (OPCODE_LOAD, F3_LW, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i32 as u64),
+            (OPCODE_LOAD, F3_LD, _) => write_rd(bus.load64(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LBU, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LHU, _) => write_rd(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LWU, _) => write_rd(bus.load32(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+
+            (OPCODE_STORE, F3_SB, _) => bus.store8(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
+            (OPCODE_STORE, F3_SH, _) => bus.store16(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
+            (OPCODE_STORE, F3_SW, _) => bus.store32(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
+            (OPCODE_STORE, F3_SD, _) => bus.store64(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
+
+            (OPCODE_MISC_MEM, _, _) => (),
+
+            (OPCODE_SYSTEM, _, _) => (),
+
+            (_, _, _) => self.undefined_instruction(instruction),
         }
 
+        // TODO validate new_pc alignment
         self.pc = new_pc;
+        self.cycles += 1;
+        self.instructions_retired += 1;
 
         ()
     }
-    
-    fn read_register(&self, index: u8, immediate: u64) -> u64 {
-        if index == 0 { immediate } else { self.registers[index as usize] }
+
+    fn read_register(&self, index: i32) -> u64 {
+        self.registers[index as usize]
     }
 
-    fn write_register(&mut self, index: u8, value: u64) {
+    fn write_register(&mut self, index: i32, value: u64) {
         if index > 0 {
-            self.registers[index as usize] = value   
+            self.registers[index as usize] = value
         }
     }
-    
-    fn undefined_instruction(&self) {}
+
+    fn undefined_instruction(&self, instruction: &Instruction) { unimplemented!("Unimplemented instruction: ({}, {}, {})", instruction.opcode, instruction.funct3, instruction.funct7) }
 }
 
 fn main() -> io::Result<()> {
-    println!("{}", opcode_to_mnemonic(SUB).unwrap());
-    println!("{}", mnemonic_to_opcode("SUB").unwrap());
-    let file = File::open("foo.scm")?;
-    let mut reader = BufReader::new(file);
-    let mut code = String::new();
-    reader.read_to_string(&mut code)?;
-    println!("Wczytany kod: \n{}", code);
-    let xd = assemble(code.as_str());
-    println!("{:?}", xd);
+    let mut file = File::open("foo.bin")?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
     
-    let mut cpu = Cpu::new();
-    let mut bus = Bus::new();
-    // cpu.execute(&Instruction { opcode: opcodes::MOV, reg_a: 0, reg_b: 0, reg_target: 1, immediate: 666 }, &mut bus);
-    // cpu.execute(&Instruction { opcode: opcodes::MOV, reg_a: 0, reg_b: 0, reg_target: 2, immediate: 42 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::ADD, reg_a: 1, reg_b: 2, reg_target: 3, immediate: 0, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::SQ, reg_a: 1, reg_b: 0, reg_target: 0, immediate: 2, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::SQ, reg_a: 2, reg_b: 0, reg_target: 0, immediate: 10, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::SQ, reg_a: 3, reg_b: 0, reg_target: 0, immediate: 18, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 4, immediate: 2, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 5, immediate: 10, offset: 0 }, &mut bus);
-    cpu.execute(&Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 6, immediate: 18, offset: 0 }, &mut bus);
-
-    let mut cpussy = Cpu::new();
     let mut bussy = Bus::new();
+    let mut cpussy = Cpu::new();
+    
+    for i in 0..buf.len() {
+        bussy.store8(i as u64, buf[i] as u64);
+    }
 
-    // bussy.store_instruction(0, Instruction { opcode: opcodes::MOV, reg_a: 0, reg_b: 0, reg_target: 1, immediate: 666 }.encode());
-    // bussy.store_instruction(16, Instruction { opcode: opcodes::MOV, reg_a: 0, reg_b: 0, reg_target: 2, immediate: 42 }.encode());
-    bussy.store_instruction(32, Instruction { opcode: opcodes::ADD, reg_a: 1, reg_b: 2, reg_target: 3, immediate: 0, offset: 0 }.encode());
-    bussy.store_instruction(48, Instruction { opcode: opcodes::SQ, reg_a: 1, reg_b: 0, reg_target: 0, immediate: 2, offset: 0 }.encode());
-    bussy.store_instruction(64, Instruction { opcode: opcodes::SQ, reg_a: 2, reg_b: 0, reg_target: 0, immediate: 10, offset: 0 }.encode());
-    bussy.store_instruction(80, Instruction { opcode: opcodes::SQ, reg_a: 3, reg_b: 0, reg_target: 0, immediate: 18, offset: 0 }.encode());
-    bussy.store_instruction(96, Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 4, immediate: 2, offset: 0 }.encode());
-    bussy.store_instruction(112, Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 5, immediate: 10, offset: 0 }.encode());
-    bussy.store_instruction(128, Instruction { opcode: opcodes::LQ, reg_a: 0, reg_b: 0, reg_target: 6, immediate: 18, offset: 0 }.encode());
-    
     cpussy.step(&mut bussy);
     cpussy.step(&mut bussy);
     cpussy.step(&mut bussy);
@@ -177,14 +158,6 @@ fn main() -> io::Result<()> {
     cpussy.step(&mut bussy);
     cpussy.step(&mut bussy);
     cpussy.step(&mut bussy);
-    cpussy.step(&mut bussy);
-    cpussy.step(&mut bussy);
-    
-    println!("{}, {}, {}", cpussy.registers[4], cpussy.registers[5], cpussy.registers[6]);
 
     Ok(())
-}
-
-fn handle_single_instruction(a: &Value) {
-    println!("{}", a);
 }

@@ -1,5 +1,90 @@
 ﻿#![allow(dead_code)]
 
+pub const OPCODE_OP_IMM: i32 = 0b0010011;
+pub const OPCODE_OP: i32 = 0b0110011;
+pub const OPCODE_LUI: i32 = 0b0110111;
+pub const OPCODE_AUIPC: i32 = 0b0010111;
+pub const OPCODE_JAL: i32 = 0b1101111;
+pub const OPCODE_JALR: i32 = 0b1100111;
+pub const OPCODE_BRANCH: i32 = 0b1100011;
+pub const OPCODE_LOAD: i32 = 0b0000011;
+pub const OPCODE_STORE: i32 = 0b0100011;
+pub const OPCODE_MISC_MEM: i32 = 0b0001111;
+pub const OPCODE_SYSTEM: i32 = 0b1110011;
+
+pub const F3_ADD: i32 = 0;
+pub const F3_SUB: i32 = 0;
+pub const F3_SLL: i32 = 1;
+pub const F3_SLT: i32 = 2;
+pub const F3_SLTU: i32 = 3;
+pub const F3_XOR: i32 = 4;
+pub const F3_SRL: i32 = 5;
+pub const F3_SRA: i32 = 5;
+pub const F3_OR: i32 = 6;
+pub const F3_AND: i32 = 7;
+
+pub const F3_BEQ: i32 = 0;
+pub const F3_BNE: i32 = 1;
+pub const F3_BLT: i32 = 4;
+pub const F3_BGE: i32 = 5;
+pub const F3_BLTU: i32 = 6;
+pub const F3_BGEU: i32 = 7;
+
+pub const F3_LB: i32 = 0;
+pub const F3_LH: i32 = 1;
+pub const F3_LW: i32 = 2;
+pub const F3_LD: i32 = 3;
+pub const F3_LBU: i32 = 4;
+pub const F3_LHU: i32 = 5;
+pub const F3_LWU: i32 = 6;
+
+pub const F3_SB: i32 = 0;
+pub const F3_SH: i32 = 1;
+pub const F3_SW: i32 = 2;
+pub const F3_SD: i32 = 3;
+
+pub const F3_CSRRW: i32 = 1;
+pub const F3_CSRRS: i32 = 2;
+pub const F3_CSRRC: i32 = 3;
+pub const F3_CSRRWI: i32 = 5;
+pub const F3_CSRRSI: i32 = 6;
+pub const F3_CSRRCI: i32 = 7;
+
+pub const F7_ADD: i32 = 0;
+pub const F7_SLT: i32 = 0;
+pub const F7_SLTU: i32 = 0;
+pub const F7_AND: i32 = 0;
+pub const F7_OR: i32 = 0;
+pub const F7_XOR: i32 = 0;
+pub const F7_SLL: i32 = 0;
+pub const F7_SRL: i32 = 0;
+pub const F7_SUB: i32 = 0b0100000;
+pub const F7_SRA: i32 = 0b0100000;
+
+pub const IMM_ECALL: i32 = 0;
+pub const IMM_EBREAK: i32 = 1;
+
+pub const CSR_CYCLE: i32 = 0xC00;
+pub const CSR_TIME: i32 = 0xC01;
+pub const CSR_INSTRET: i32 = 0xC02;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 macro_rules! declare_instructions {
     ($(($name:ident $opcode:literal))+) => {
         paste::paste! {
