@@ -133,8 +133,8 @@ impl Cpu<'_> {
                     F3_CSRRCI => self.csr_operation(csr, |old_value| old_value | old_value & (!(instruction.rs1 as u64))),
                     _ => None
                 };
-                if result.is_some() {
-                    write_rd(result.unwrap())
+                if let Some(result) = result {
+                    write_rd(result);
                 } else {
                     self.undefined_instruction(instruction)
                 }
