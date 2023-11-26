@@ -60,46 +60,43 @@ impl Cpu<'_> {
         let rs2_value = self.read_register(instruction.rs2);
         let rs1_value_signed = rs1_value as i64;
         let rs2_value_signed = rs2_value as i64;
-
-        macro_rules! write_rd {
-            ($value:expr) => {
-                self.write_register(instruction.rd, $value)
-            }
-        }
+        
+        let mut new_rd_value = None;
+        let mut write_rd = |value: u64| new_rd_value = Some(value);
         
         match (instruction.opcode, instruction.funct3, instruction.funct7) {
-            (OPCODE_OP_IMM, F3_ADD, _) => write_rd!(rs1_value.wrapping_add_signed(instruction.immediate_i())),
-            (OPCODE_OP_IMM, F3_SLT, _) => write_rd!((rs1_value_signed < instruction.immediate_i()) as u64),
-            (OPCODE_OP_IMM, F3_SLTU, _) => write_rd!((rs1_value < instruction.immediate_i_unsigned()) as u64),
-            (OPCODE_OP_IMM, F3_AND, _) => write_rd!(instruction.immediate_i_unsigned() & rs1_value),
-            (OPCODE_OP_IMM, F3_OR, _) => write_rd!(instruction.immediate_i_unsigned() | rs1_value),
-            (OPCODE_OP_IMM, F3_XOR, _) => write_rd!(instruction.immediate_i_unsigned() ^ rs1_value),
-            (OPCODE_OP_IMM, F3_SLL, _) => write_rd!(rs1_value << instruction.shamt),
-            (OPCODE_OP_IMM, F3_SRL, F7_SRL) => write_rd!(rs1_value >> instruction.shamt),
-            (OPCODE_OP_IMM, F3_SRA, F7_SRA) => write_rd!((rs1_value_signed >> instruction.shamt) as u64),
+            (OPCODE_OP_IMM, F3_ADD, _) => write_rd(rs1_value.wrapping_add_signed(instruction.immediate_i())),
+            (OPCODE_OP_IMM, F3_SLT, _) => write_rd((rs1_value_signed < instruction.immediate_i()) as u64),
+            (OPCODE_OP_IMM, F3_SLTU, _) => write_rd((rs1_value < instruction.immediate_i_unsigned()) as u64),
+            (OPCODE_OP_IMM, F3_AND, _) => write_rd(instruction.immediate_i_unsigned() & rs1_value),
+            (OPCODE_OP_IMM, F3_OR, _) => write_rd(instruction.immediate_i_unsigned() | rs1_value),
+            (OPCODE_OP_IMM, F3_XOR, _) => write_rd(instruction.immediate_i_unsigned() ^ rs1_value),
+            (OPCODE_OP_IMM, F3_SLL, _) => write_rd(rs1_value << instruction.shamt),
+            (OPCODE_OP_IMM, F3_SRL, F7_SRL) => write_rd(rs1_value >> instruction.shamt),
+            (OPCODE_OP_IMM, F3_SRA, F7_SRA) => write_rd((rs1_value_signed >> instruction.shamt) as u64),
 
-            (OPCODE_LUI, _, _) => write_rd!(instruction.immediate_u_unsigned()),
+            (OPCODE_LUI, _, _) => write_rd(instruction.immediate_u_unsigned()),
             
-            (OPCODE_AUIPC, _, _) => write_rd!(pc + instruction.immediate_u_unsigned()),
+            (OPCODE_AUIPC, _, _) => write_rd(pc + instruction.immediate_u_unsigned()),
 
-            (OPCODE_OP, F3_ADD, F7_ADD) => write_rd!(rs1_value.wrapping_add(rs2_value)),
-            (OPCODE_OP, F3_SLT, F7_SLT) => write_rd!((rs1_value_signed < rs2_value_signed) as u64),
-            (OPCODE_OP, F3_SLTU, F7_SLTU) => write_rd!((rs1_value < rs2_value) as u64),
-            (OPCODE_OP, F3_AND, F7_AND) => write_rd!(rs1_value & rs2_value),
-            (OPCODE_OP, F3_OR, F7_OR) => write_rd!(rs1_value | rs2_value),
-            (OPCODE_OP, F3_XOR, F7_XOR) => write_rd!(rs1_value ^ rs2_value),
-            (OPCODE_OP, F3_SLL, F7_SLL) => write_rd!(rs1_value << (rs2_value & 0x1F)),
-            (OPCODE_OP, F3_SRL, F7_SRL) => write_rd!(rs1_value >> (rs2_value & 0x1F)),
-            (OPCODE_OP, F3_SRA, F7_SRA) => write_rd!((rs1_value_signed >> (rs2_value & 0x1F)) as u64),
-            (OPCODE_OP, F3_SUB, F7_SUB) => write_rd!(rs1_value.wrapping_sub(rs2_value)),
+            (OPCODE_OP, F3_ADD, F7_ADD) => write_rd(rs1_value.wrapping_add(rs2_value)),
+            (OPCODE_OP, F3_SLT, F7_SLT) => write_rd((rs1_value_signed < rs2_value_signed) as u64),
+            (OPCODE_OP, F3_SLTU, F7_SLTU) => write_rd((rs1_value < rs2_value) as u64),
+            (OPCODE_OP, F3_AND, F7_AND) => write_rd(rs1_value & rs2_value),
+            (OPCODE_OP, F3_OR, F7_OR) => write_rd(rs1_value | rs2_value),
+            (OPCODE_OP, F3_XOR, F7_XOR) => write_rd(rs1_value ^ rs2_value),
+            (OPCODE_OP, F3_SLL, F7_SLL) => write_rd(rs1_value << (rs2_value & 0x1F)),
+            (OPCODE_OP, F3_SRL, F7_SRL) => write_rd(rs1_value >> (rs2_value & 0x1F)),
+            (OPCODE_OP, F3_SRA, F7_SRA) => write_rd((rs1_value_signed >> (rs2_value & 0x1F)) as u64),
+            (OPCODE_OP, F3_SUB, F7_SUB) => write_rd(rs1_value.wrapping_sub(rs2_value)),
 
             (OPCODE_JAL, _, _) => {
-                write_rd!(next_instruction_address);
+                write_rd(next_instruction_address);
                 new_pc = pc.wrapping_add_signed(instruction.immediate_j())
             }
 
             (OPCODE_JALR, _, _) => {
-                write_rd!(next_instruction_address);
+                write_rd(next_instruction_address);
                 new_pc = rs1_value.wrapping_add_signed(instruction.immediate_i()) & (!1);
             }
 
@@ -110,13 +107,13 @@ impl Cpu<'_> {
             (OPCODE_BRANCH, F3_BLTU, _) => if rs1_value < rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
             (OPCODE_BRANCH, F3_BGEU, _) => if rs1_value >= rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
 
-            (OPCODE_LOAD, F3_LB, _) => write_rd!(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i8 as u64),
-            (OPCODE_LOAD, F3_LH, _) => write_rd!(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i16 as u64),
-            (OPCODE_LOAD, F3_LW, _) => write_rd!(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i32 as u64),
-            (OPCODE_LOAD, F3_LD, _) => write_rd!(bus.load64(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
-            (OPCODE_LOAD, F3_LBU, _) => write_rd!(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
-            (OPCODE_LOAD, F3_LHU, _) => write_rd!(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
-            (OPCODE_LOAD, F3_LWU, _) => write_rd!(bus.load32(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LB, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i8 as u64),
+            (OPCODE_LOAD, F3_LH, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i16 as u64),
+            (OPCODE_LOAD, F3_LW, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i32 as u64),
+            (OPCODE_LOAD, F3_LD, _) => write_rd(bus.load64(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LBU, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LHU, _) => write_rd(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
+            (OPCODE_LOAD, F3_LWU, _) => write_rd(bus.load32(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
 
             (OPCODE_STORE, F3_SB, _) => bus.store8(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
             (OPCODE_STORE, F3_SH, _) => bus.store16(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
@@ -137,7 +134,7 @@ impl Cpu<'_> {
                     _ => None
                 };
                 if result.is_some() {
-                    write_rd!(result.unwrap())
+                    write_rd(result.unwrap())
                 } else {
                     self.undefined_instruction(instruction)
                 }
@@ -145,6 +142,10 @@ impl Cpu<'_> {
             (OPCODE_SYSTEM, F3_ECALL_EBREAK, 0) => if instruction.rs2 == IMM_ECALL {} else if instruction.rs2 == IMM_EBREAK {} else { self.undefined_instruction(instruction) },
 
             (_, _, _) => self.undefined_instruction(instruction),
+        }
+        
+        if let Some(rd) = new_rd_value {
+            self.write_register(instruction.rd, rd);
         }
 
         // TODO validate new_pc alignment
