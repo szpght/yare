@@ -33,6 +33,7 @@ impl Instruction {
     }
     
     // todo sprawdzić czy przez przypadek nie usuwam extendowanych jedynek którymś andem
+    pub fn csr(&self) -> u64 { ((self.raw as u64) >> 20) & 0xFFF }
     pub fn immediate_i(&self) -> i64 { (self.raw >> 20) as i64 }
     pub fn immediate_u(&self) -> i64 { (self.raw & 0xFFF) as i64 }
     pub fn immediate_s(&self) -> i64 { (((self.raw >> 7) & 0x1F) | ((self.raw >> 20) & 0xFE0)) as i64 }

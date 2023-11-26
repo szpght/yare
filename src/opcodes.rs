@@ -43,6 +43,7 @@ pub const F3_SH: i32 = 1;
 pub const F3_SW: i32 = 2;
 pub const F3_SD: i32 = 3;
 
+pub const F3_ECALL_EBREAK: i32 = 0;
 pub const F3_CSRRW: i32 = 1;
 pub const F3_CSRRS: i32 = 2;
 pub const F3_CSRRC: i32 = 3;
@@ -64,9 +65,9 @@ pub const F7_SRA: i32 = 0b0100000;
 pub const IMM_ECALL: i32 = 0;
 pub const IMM_EBREAK: i32 = 1;
 
-pub const CSR_CYCLE: i32 = 0xC00;
-pub const CSR_TIME: i32 = 0xC01;
-pub const CSR_INSTRET: i32 = 0xC02;
+pub const CSR_CYCLE: u64 = 0xC00;
+pub const CSR_TIME: u64 = 0xC01;
+pub const CSR_INSTRET: u64 = 0xC02;
 
 
 
