@@ -31,15 +31,49 @@ impl Instruction {
             shamt: rs2,
         }
     }
-    
-    // todo sprawdzić czy przez przypadek nie usuwam extendowanych jedynek którymś andem
+
     pub fn csr(&self) -> u64 { ((self.raw as u64) >> 20) & 0xFFF }
     pub fn immediate_i(&self) -> i64 { (self.raw >> 20) as i64 }
-    pub fn immediate_u(&self) -> i64 { (self.raw & 0xFFF) as i64 }
-    pub fn immediate_s(&self) -> i64 { (((self.raw >> 7) & 0x1F) | ((self.raw >> 20) & 0xFE0)) as i64 }
-    pub fn immediate_j(&self) -> i64 { ((((self.raw >> 21) & 0x3FF) | ((self.raw >> 9) & 0x1) | (self.raw & 0xFF000) | ((self.raw >> 11) & 0x1)) as i64) >> 1 } // to jest pewnie zepsute
-    pub fn immediate_b(&self) -> i64 { (((self.raw >> 7) & 0x1E) | ((self.raw >> 20) & 0x7E0) | ((self.raw << 4) & 0x800) | ((self.raw >> 19) & 0xF800)) as i64 }
+    pub fn immediate_u(&self) -> i64 { (self.raw & !0xFFF) as i64 }
+    pub fn immediate_s(&self) -> i64 { (((self.raw >> 7) & 0x1F) | ((self.raw >> 20) & !0x1F)) as i64 }
+
+    pub fn immediate_b(&self) -> i64 {
+        (((self.raw >> 8 - 1) & 0b_1111_0) | ((self.raw >> 25 - 5) & 0b_11_1111_00000) | ((self.raw << -(7 - 11)) & 0b1_000_0000_0000) | (self.raw >> 31 - 12) & !0b111111111111) as i64
+    }
+
+    pub fn immediate_j(&self) -> i64 {
+        ((self.raw >> 21 - 1) & 0b11111111110 | (self.raw >> 20 - 11) & 0b100000000000 | self.raw & 0b11111111000000000000 | (self.raw >> 31-20) & !0xFFFFF) as i64
+    }
+
     pub fn immediate_i_unsigned(&self) -> u64 { self.immediate_i() as u64 }
     pub fn immediate_u_unsigned(&self) -> u64 { self.immediate_u() as u64 }
-    pub fn immediate_s_unsigned(&self) -> u64 { self.immediate_s() as u64 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_immediate_b() {
+        let i = Instruction::decode(-1);
+        assert_eq!(i.immediate_b(), -2);
+    }
+
+    #[test]
+    fn test_immediate_j() {
+        let i = Instruction::decode(-1);
+        assert_eq!(i.immediate_j(), -2);
+    }
+
+    #[test]
+    fn test_immediate_u() {
+        let i = Instruction::decode(-1);
+        assert_eq!(i.immediate_u_unsigned(), u64::MAX - 4095);
+    }
+
+    #[test]
+    fn test_immediate_s() {
+        let i = Instruction::decode(-1);
+        assert_eq!(i.immediate_s(), -1);
+    }
 }
