@@ -1,7 +1,9 @@
 ﻿#![allow(dead_code)]
 
 pub const OPCODE_OP_IMM: i32 = 0b0010011;
+pub const OPCODE_OP_IMM_32: i32 = 0b0011011;
 pub const OPCODE_OP: i32 = 0b0110011;
+pub const OPCODE_OP_32: i32 = 0b0111011;
 pub const OPCODE_LUI: i32 = 0b0110111;
 pub const OPCODE_AUIPC: i32 = 0b0010111;
 pub const OPCODE_JAL: i32 = 0b1101111;

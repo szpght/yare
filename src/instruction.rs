@@ -8,27 +8,26 @@
     pub funct3: i32,
     pub funct7: i32,
     pub shamt: i32,
+    pub shamtw: i32,
 }
 
 impl Instruction {
     pub fn decode(data: i32) -> Instruction {
-        let opcode = (data & 0x7F);
-        let rd = (data >> 7) & 0x1F;
-        let funct3 = (data >> 12) & 0x07;
-        let rs1 = (data >> 15) & 0x1F;
-        let rs2 = (data >> 20) & 0x1F;
-        let funct7 = (data >> 25) & 0x7F;
-
-        Instruction {
-            raw: data,
-            size: 4,
-            opcode,
-            rd,
-            funct3,
-            rs1,
-            rs2,
-            funct7,
-            shamt: rs2,
+        if data & 3 == 3 {
+            Instruction {
+                raw: data,
+                size: 4,
+                opcode: data & 0x7F,
+                rd: (data >> 7) & 0x1F,
+                funct3: (data >> 12) & 0x07,
+                rs1: (data >> 15) & 0x1F,
+                rs2: (data >> 20) & 0x1F,
+                funct7: (data >> 25) & 0x7F,
+                shamt: (data >> 20) & 0x3F,
+                shamtw: (data >> 20) & 0x1F,
+            }
+        } else {
+            unimplemented!("Instruction with length other that 4 encountered");
         }
     }
 
