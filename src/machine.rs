@@ -112,8 +112,8 @@ impl Cpu<'_> {
             (OPCODE_BRANCH, F3_BGEU, _) => if rs1_value >= rs2_value { new_pc = pc.wrapping_add_signed(instruction.immediate_b()) },
 
             (OPCODE_LOAD, F3_LB, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i8 as u64),
-            (OPCODE_LOAD, F3_LH, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i16 as u64),
-            (OPCODE_LOAD, F3_LW, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i32 as u64),
+            (OPCODE_LOAD, F3_LH, _) => write_rd(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i16 as u64),
+            (OPCODE_LOAD, F3_LW, _) => write_rd(bus.load32(rs1_value.wrapping_add_signed(instruction.immediate_i())) as i32 as u64),
             (OPCODE_LOAD, F3_LD, _) => write_rd(bus.load64(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
             (OPCODE_LOAD, F3_LBU, _) => write_rd(bus.load8(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
             (OPCODE_LOAD, F3_LHU, _) => write_rd(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
