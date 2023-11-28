@@ -86,6 +86,14 @@ impl Cpu<'_> {
             (OPCODE_OP, F3_SRL, F7_SRL) => write_rd(rs1_value >> (rs2_value & 0x3F)),
             (OPCODE_OP, F3_SRA, F7_SRA) => write_rd((rs1_value_signed >> (rs2_value & 0x3F)) as u64),
             (OPCODE_OP, F3_SUB, F7_SUB) => write_rd(rs1_value.wrapping_sub(rs2_value)),
+            (OPCODE_OP, F3_MUL, F7_MULDIV) => write_rd(rs1_value.wrapping_mul(rs2_value)),
+            (OPCODE_OP, F3_MULH, F7_MULDIV) => write_rd(((rs1_value_signed as i128).wrapping_mul(rs2_value_signed as i128) >> 64) as u64),
+            (OPCODE_OP, F3_MULHU, F7_MULDIV) => write_rd(mulhu(rs1_value, rs2_value)),
+            (OPCODE_OP, F3_MULHSU, F7_MULDIV) => write_rd(mulhsu(rs1_value_signed, rs2_value)),
+            (OPCODE_OP, F3_DIV, F7_MULDIV) => write_rd(div_signed(rs1_value, rs2_value).0),
+            (OPCODE_OP, F3_REM, F7_MULDIV) => write_rd(div_signed(rs1_value, rs2_value).1),
+            (OPCODE_OP, F3_DIVU, F7_MULDIV) => write_rd(div_unsigned(rs1_value, rs2_value).0),
+            (OPCODE_OP, F3_REMU, F7_MULDIV) => write_rd(div_unsigned(rs1_value, rs2_value).1),
 
             // TODO less casts?
             (OPCODE_OP_32, F3_ADD, _) => write_rd(rs1_value.wrapping_add(rs2_value) as i32 as u64),
@@ -93,6 +101,11 @@ impl Cpu<'_> {
             (OPCODE_OP_32, F3_SLL, _) => write_rd(((rs1_value as u32) << ((rs2_value as u32) & 0x1F)) as u64),
             (OPCODE_OP_32, F3_SRL, _) => write_rd(((rs1_value as u32) >> ((rs2_value as u32) & 0x1F)) as u64),
             (OPCODE_OP_32, F3_SRA, _) => write_rd(((rs1_value_signed as i32) >> (rs2_value & 0x1F)) as u64),
+            (OPCODE_OP_32, F3_MULW, F7_MULDIV) => write_rd((rs1_value as u32).wrapping_mul(rs2_value as u32) as i32 as u64),
+            (OPCODE_OP_32, F3_DIVW, F7_MULDIV) => write_rd(div_signed(rs1_value as i32 as u64, rs2_value as i32 as u64).0 as u32 as u64),
+            (OPCODE_OP_32, F3_REMW, F7_MULDIV) => write_rd(div_signed(rs1_value as i32 as u64, rs2_value as i32 as u64).1 as u32 as u64),
+            (OPCODE_OP_32, F3_DIVUW, F7_MULDIV) => write_rd(div_unsigned(rs1_value as u32 as u64, rs2_value as u32 as u64).0 as u32 as u64),
+            (OPCODE_OP_32, F3_REMUW, F7_MULDIV) => write_rd(div_unsigned(rs1_value as u32 as u64, rs2_value as u32 as u64).1 as u32 as u64),
 
             (OPCODE_JAL, _, _) => {
                 write_rd(next_instruction_address);
@@ -142,7 +155,7 @@ impl Cpu<'_> {
                 } else {
                     self.undefined_instruction(instruction)
                 }
-            },
+            }
             (OPCODE_SYSTEM, F3_ECALL_EBREAK, 0) => if instruction.rs2 == IMM_ECALL {} else if instruction.rs2 == IMM_EBREAK {} else { self.undefined_instruction(instruction) },
 
             (_, _, _) => self.undefined_instruction(instruction),
@@ -152,7 +165,6 @@ impl Cpu<'_> {
             self.write_register(instruction.rd, rd);
         }
 
-        // TODO validate new_pc alignment
         self.pc = new_pc;
         self.cycles += 1;
         self.instructions_retired += 1;
@@ -188,4 +200,38 @@ impl Cpu<'_> {
     }
 
     fn undefined_instruction(&self, instruction: &Instruction) { unimplemented!("Unimplemented instruction: ({}, {}, {})", instruction.opcode, instruction.funct3, instruction.funct7) }
+}
+
+fn mulhsu(a: i64, b: u64) -> u64 {
+    // based on https://github.com/riscv-software-src/riscv-isa-sim/blob/90aa49f85b589c91754ea224bc2f1492dd99efa3/riscv/arith.h#L40
+    // let negate = a < 0;
+    // let res = mulhu((if negate { -a } else { a } as u64), b);
+    // if negate { !res + (a * b == 0) } else { res }
+    1
+}
+
+fn mulhu(a: u64, b: u64) -> u64 {
+    ((a as u128).wrapping_mul(b as u128) >> 64) as u64
+}
+
+fn div_unsigned(a: u64, b: u64) -> (u64, u64) {
+    if b == 0 {
+        (u64::MAX, a)
+    } else {
+        (a / b, a % b)
+    }
+}
+
+fn div_signed(a: u64, b: u64) -> (u64, u64) {
+    let a = a as i64;
+    let b = b as i64;
+    let result =
+        if b == 0 {
+            (-1, a)
+        } else if a == i64::MIN && b == -1 {
+            (i64::MIN, 0)
+        } else {
+            (a / b, a % b)
+        };
+    (result.0 as u64, result.1 as u64)
 }

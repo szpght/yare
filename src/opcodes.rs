@@ -25,6 +25,21 @@ pub const F3_SRA: i32 = 5;
 pub const F3_OR: i32 = 6;
 pub const F3_AND: i32 = 7;
 
+pub const F3_MUL: i32 = 0;
+pub const F3_MULH: i32 = 1;
+pub const F3_MULHSU: i32 = 2;
+pub const F3_MULHU: i32 = 3;
+pub const F3_DIV: i32 = 4;
+pub const F3_DIVU: i32 = 5;
+pub const F3_REM: i32 = 6;
+pub const F3_REMU: i32 = 7;
+
+pub const F3_MULW: i32 = F3_MUL;
+pub const F3_DIVW: i32 = F3_DIV;
+pub const F3_DIVUW: i32 = F3_DIVU;
+pub const F3_REMW: i32 = F3_REM;
+pub const F3_REMUW: i32 = F3_REMU;
+
 pub const F3_BEQ: i32 = 0;
 pub const F3_BNE: i32 = 1;
 pub const F3_BLT: i32 = 4;
@@ -63,6 +78,7 @@ pub const F7_SLL: i32 = 0;
 pub const F7_SRL: i32 = 0;
 pub const F7_SUB: i32 = 0b0100000;
 pub const F7_SRA: i32 = 0b0100000;
+pub const F7_MULDIV: i32 = 1;
 
 pub const IMM_ECALL: i32 = 0;
 pub const IMM_EBREAK: i32 = 1;
