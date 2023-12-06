@@ -63,7 +63,7 @@ impl Cpu<'_> {
 
             (OPCODE_OP_IMM_32, F3_ADD, _) => write_rd((rs1_value as u32).wrapping_add_signed(instruction.immediate_i() as i32) as i32 as u64),
             (OPCODE_OP_IMM_32, F3_SLL, _) => write_rd(((rs1_value as u32) << instruction.shamt) as u64),
-            (OPCODE_OP_IMM_32, F3_SRL, F7_SRL) => write_rd(((rs1_value as u32) >> instruction.shamtw) as u64),
+            (OPCODE_OP_IMM_32, F3_SRL, F7_SRL) => write_rd(((rs1_value as u32) >> instruction.shamtw()) as u64),
             (OPCODE_OP_IMM_32, F3_SRA, F7_SRA) => write_rd(((rs1_value_signed as i32) >> instruction.shamt) as u64),
 
             (OPCODE_LUI, _, _) => write_rd(instruction.immediate_u_unsigned()),

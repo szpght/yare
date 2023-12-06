@@ -8,7 +8,6 @@
     pub funct3: i32,
     pub funct7: i32,
     pub shamt: i32,
-    pub shamtw: i32,
 }
 
 impl Instruction {
@@ -24,13 +23,13 @@ impl Instruction {
                 rs2: (data >> 20) & 0x1F,
                 funct7: (data >> 25) & 0x7F,
                 shamt: (data >> 20) & 0x3F,
-                shamtw: (data >> 20) & 0x1F,
             }
         } else {
             unimplemented!("Instruction with length other that 4 encountered");
         }
     }
-
+    
+    pub fn shamtw(&self) -> i32 { self.rs2 } // defined as (self.raw >> 20) & 0x1F
     pub fn csr(&self) -> u64 { ((self.raw as u64) >> 20) & 0xFFF }
     pub fn immediate_i(&self) -> i64 { (self.raw >> 20) as i64 }
     pub fn immediate_u(&self) -> i64 { (self.raw & !0xFFF) as i64 }
