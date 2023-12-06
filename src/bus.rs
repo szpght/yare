@@ -4,11 +4,11 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn new() -> Bus {
+    pub fn new(memory_size: usize) -> Bus {
         let mut bus = Bus {
-            memory: Vec::with_capacity(1024 * 1024)
+            memory: Vec::new()
         };
-        bus.memory.resize(1024 * 1024, 0);
+        bus.memory.resize(memory_size, 0);
         bus
     }
 
@@ -19,64 +19,39 @@ impl Bus {
 
     pub fn load16(&self, addr: u64) -> u64 {
         let index = addr as usize;
-        (self.memory[index] as u64)
-            | ((self.memory[index + 1] as u64) << 8)
+        let bytes = &self.memory[index..index + 2];
+        u16::from_le_bytes(bytes.try_into().unwrap()) as u64
     }
 
     pub fn load32(&self, addr: u64) -> u64 {
         let index = addr as usize;
-        return (self.memory[index] as u64)
-            | ((self.memory[index + 1] as u64) << 8)
-            | ((self.memory[index + 2] as u64) << 16)
-            | ((self.memory[index + 3] as u64) << 24);
+        let bytes = &self.memory[index..index + 4];
+        u32::from_le_bytes(bytes.try_into().unwrap()) as u64
     }
 
     pub fn load64(&self, addr: u64) -> u64 {
-        self.load32(addr) | self.load32(addr + 4) << 32
+        let index = addr as usize;
+        let bytes = &self.memory[index..index + 8];
+        u64::from_le_bytes(bytes.try_into().unwrap())
     }
-
-    // pub fn load128(&self, addr: u64) -> u128 {
-    //     self.load32(addr) | self.load32(addr + 4) << 32
-    // }
 
     pub fn store8(&mut self, addr: u64, value: u64) {
         let index = addr as usize;
-        self.memory[index] = (value & 0xff) as u8;
+        self.memory[index] = value as u8;
     }
 
     pub fn store16(&mut self, addr: u64, value: u64) {
         let index = addr as usize;
-        self.memory[index] = (value & 0xff) as u8;
-        self.memory[index + 1] = ((value >> 8) & 0xff) as u8;
+        self.memory[index..index + 2].copy_from_slice(&(value as u16).to_le_bytes());
     }
 
     pub fn store32(&mut self, addr: u64, value: u64) {
         let index = addr as usize;
-        self.memory[index] = (value & 0xff) as u8;
-        self.memory[index + 1] = ((value >> 8) & 0xff) as u8;
-        self.memory[index + 2] = ((value >> 16) & 0xff) as u8;
-        self.memory[index + 3] = ((value >> 24) & 0xff) as u8;
+        self.memory[index..index + 4].copy_from_slice(&(value as u32).to_le_bytes());
     }
 
     pub fn store64(&mut self, addr: u64, value: u64) {
         let index = addr as usize;
-        self.memory[index] = (value & 0xff) as u8;
-        self.memory[index + 1] = ((value >> 8) & 0xff) as u8;
-        self.memory[index + 2] = ((value >> 16) & 0xff) as u8;
-        self.memory[index + 3] = ((value >> 24) & 0xff) as u8;
-        self.memory[index + 4] = ((value >> 32) & 0xff) as u8;
-        self.memory[index + 5] = ((value >> 40) & 0xff) as u8;
-        self.memory[index + 6] = ((value >> 48) & 0xff) as u8;
-        self.memory[index + 7] = ((value >> 56) & 0xff) as u8;
-    }
-    
-    pub fn store_instruction(&mut self, addr: u64, data: (u64, u64)) {
-        self.store64(addr, data.0);
-        self.store64(addr + 8, data.1);
-    }
-
-    pub fn store128(&mut self, addr: u64, value: u128) {
-        self.store64(addr, value as u64);
-        self.store64(addr + 8, (value >> 64) as u64);
+        self.memory[index..index + 8].copy_from_slice(&value.to_le_bytes());
     }
 }
