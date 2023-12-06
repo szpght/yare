@@ -28,12 +28,6 @@ impl Cpu<'_> {
         Cpu { registers: [0; 32], pc: 0, cycles: 0, instructions_retired: 0, machine }
     }
 
-    pub fn work(&mut self, bus: &mut Bus) {
-        loop {
-            self.step(bus);
-        }
-    }
-
     pub fn step(&mut self, bus: &mut Bus) {
         let instruction = self.fetch(bus);
         self.execute(&instruction, bus);
@@ -96,11 +90,11 @@ impl Cpu<'_> {
             (OPCODE_OP, F3_REMU, F7_MULDIV) => write_rd(div_unsigned(rs1_value, rs2_value).1),
 
             // TODO less casts?
-            (OPCODE_OP_32, F3_ADD, _) => write_rd(rs1_value.wrapping_add(rs2_value) as i32 as u64),
-            (OPCODE_OP_32, F3_SUB, _) => write_rd((rs1_value as u32).wrapping_sub(rs2_value as u32) as i32 as u64),
-            (OPCODE_OP_32, F3_SLL, _) => write_rd(((rs1_value as u32) << ((rs2_value as u32) & 0x1F)) as u64),
-            (OPCODE_OP_32, F3_SRL, _) => write_rd(((rs1_value as u32) >> ((rs2_value as u32) & 0x1F)) as u64),
-            (OPCODE_OP_32, F3_SRA, _) => write_rd(((rs1_value_signed as i32) >> (rs2_value & 0x1F)) as u64),
+            (OPCODE_OP_32, F3_ADD, F7_ADD) => write_rd(rs1_value.wrapping_add(rs2_value) as i32 as u64),
+            (OPCODE_OP_32, F3_SUB, F7_SUB) => write_rd((rs1_value as u32).wrapping_sub(rs2_value as u32) as i32 as u64),
+            (OPCODE_OP_32, F3_SLL, F7_SLL) => write_rd(((rs1_value as u32) << ((rs2_value as u32) & 0x1F)) as u64),
+            (OPCODE_OP_32, F3_SRL, F7_SRL) => write_rd(((rs1_value as u32) >> ((rs2_value as u32) & 0x1F)) as u64),
+            (OPCODE_OP_32, F3_SRA, F7_SRA) => write_rd(((rs1_value_signed as i32) >> (rs2_value & 0x1F)) as u64),
             (OPCODE_OP_32, F3_MULW, F7_MULDIV) => write_rd((rs1_value as u32).wrapping_mul(rs2_value as u32) as i32 as u64),
             (OPCODE_OP_32, F3_DIVW, F7_MULDIV) => write_rd(div_signed(rs1_value as i32 as u64, rs2_value as i32 as u64).0 as u32 as u64),
             (OPCODE_OP_32, F3_REMW, F7_MULDIV) => write_rd(div_signed(rs1_value as i32 as u64, rs2_value as i32 as u64).1 as u32 as u64),
@@ -191,7 +185,7 @@ impl Cpu<'_> {
         }
     }
 
-    fn write_control_register(&self, id: u64, value: u64) -> bool { false }
+    fn write_control_register(&self, _id: u64, _value: u64) -> bool { false }
 
     fn csr_operation(&mut self, id: u64, operation: impl FnOnce(u64) -> u64) -> Option<u64> {
         let old_value = self.read_control_register(id)?;
@@ -204,10 +198,9 @@ impl Cpu<'_> {
 
 fn mulhsu(a: i64, b: u64) -> u64 {
     // based on https://github.com/riscv-software-src/riscv-isa-sim/blob/90aa49f85b589c91754ea224bc2f1492dd99efa3/riscv/arith.h#L40
-    // let negate = a < 0;
-    // let res = mulhu((if negate { -a } else { a } as u64), b);
-    // if negate { !res + (a * b == 0) } else { res }
-    1
+    let negate = a < 0;
+    let res = mulhu((if negate { -a } else { a } as u64), b);
+    if negate { !res + ((a as u64) * b == 0) as u64 } else { res }
 }
 
 fn mulhu(a: u64, b: u64) -> u64 {
