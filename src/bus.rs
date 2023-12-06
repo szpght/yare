@@ -35,6 +35,11 @@ impl Bus {
         u64::from_le_bytes(bytes.try_into().unwrap())
     }
 
+    pub fn store_bytes(&mut self, addr: u64, bytes: &[u8]) {
+        let index = addr as usize;
+        self.memory[index..index + bytes.len()].copy_from_slice(bytes);
+    }
+
     pub fn store8(&mut self, addr: u64, value: u64) {
         let index = addr as usize;
         self.memory[index] = value as u8;
