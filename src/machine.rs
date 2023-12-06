@@ -132,10 +132,10 @@ impl Cpu<'_> {
             (OPCODE_LOAD, F3_LHU, _) => write_rd(bus.load16(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
             (OPCODE_LOAD, F3_LWU, _) => write_rd(bus.load32(rs1_value.wrapping_add_signed(instruction.immediate_i()))),
 
-            (OPCODE_STORE, F3_SB, _) => bus.store8(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
-            (OPCODE_STORE, F3_SH, _) => bus.store16(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
-            (OPCODE_STORE, F3_SW, _) => bus.store32(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
-            (OPCODE_STORE, F3_SD, _) => bus.store64(rs1_value.wrapping_add_signed(instruction.immediate_i()), rs2_value),
+            (OPCODE_STORE, F3_SB, _) => bus.store8(rs1_value.wrapping_add_signed(instruction.immediate_s()), rs2_value),
+            (OPCODE_STORE, F3_SH, _) => bus.store16(rs1_value.wrapping_add_signed(instruction.immediate_s()), rs2_value),
+            (OPCODE_STORE, F3_SW, _) => bus.store32(rs1_value.wrapping_add_signed(instruction.immediate_s()), rs2_value),
+            (OPCODE_STORE, F3_SD, _) => bus.store64(rs1_value.wrapping_add_signed(instruction.immediate_s()), rs2_value),
 
             (OPCODE_MISC_MEM, _, _) => (),
 
